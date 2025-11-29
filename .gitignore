@@ -1,0 +1,15 @@
+# Node
+node_modules/
+dist/
+*.log
+npm-debug.log*
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Mac/IDE
+.DS_Store
+.idea/
+.vscode/

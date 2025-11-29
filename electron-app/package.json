@@ -1,0 +1,40 @@
+{
+  "name": "electron-app",
+  "version": "1.0.0",
+  "description": "MVP desktop assistant overlay - Electron shell",
+  "main": "src/main/main.ts",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron -r ts-node/register/transpile-only ./src/main/main.ts",
+    "typecheck": "tsc --noEmit",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "start": "npm run build:renderer && npm run build:main && electron ./dist/main/main.js"
+  },
+  "keywords": [
+    "electron",
+    "react",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.2",
+    "@types/react": "^18.3.7",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^32.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8",
+    "wait-on": "^7.2.0"
+  }
+}
