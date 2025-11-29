@@ -2,11 +2,11 @@
   "name": "electron-app",
   "version": "1.0.0",
   "description": "MVP desktop assistant overlay - Electron shell",
-  "main": "src/main/main.ts",
+  "main": "electron-loader.js",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron -r ts-node/register/transpile-only ./src/main/main.ts",
+    "dev:electron": "wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 TS_NODE_PROJECT=tsconfig.main.json electron .",
     "typecheck": "tsc --noEmit",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
@@ -33,6 +33,7 @@
     "cross-env": "^7.0.3",
     "electron": "^32.1.2",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "^5.6.3",
     "vite": "^5.4.8",
     "wait-on": "^7.2.0"
