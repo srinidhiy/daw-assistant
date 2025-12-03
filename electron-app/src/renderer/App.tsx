@@ -1,19 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import './index.css';
-
-declare global {
-  interface Window {
-    electronAPI: {
-      captureScreenshot: () => Promise<{ success: boolean; data?: string; error?: string }>;
-    };
-  }
-}
+import '../shared/electronAPI';
 
 interface QAPair {
   id: number;
   question: string;
   answer: string;
   isStreaming: boolean;
+  bbox?: number[];
 }
 
 function App() {
@@ -107,8 +101,18 @@ function App() {
           // Parse JSON response
           const data = await response.json();
           
-          // Extract response field
-          if (data.response) {
+          let storedBbox: number[] | undefined;
+          
+          // Check if response has bbox (overlay data)
+          if (data.bbox && Array.isArray(data.bbox) && data.bbox.length === 4 && data.text) {
+            storedBbox = data.bbox;
+            // Show overlay with bbox and text
+            if (window.electronAPI && window.electronAPI.showOverlay) {
+              await window.electronAPI.showOverlay(data.bbox, data.text);
+            }
+            // Also show text in the chat
+            fullResponse = data.text;
+          } else if (data.response) {
             fullResponse = data.response;
           } else if (data.answer) {
             fullResponse = data.answer;
@@ -116,14 +120,14 @@ function App() {
             // If neither field exists, stringify the whole object for debugging
             fullResponse = JSON.stringify(data, null, 2);
           }
-        }
 
-        // Final update to mark streaming as complete
-        setQAPairs(prev =>
-          prev.map(qa =>
-            qa.id === newQA.id ? { ...qa, answer: fullResponse, isStreaming: false } : qa
-          )
-        );
+          // Final update to mark streaming as complete and store bbox
+          setQAPairs(prev =>
+            prev.map(qa =>
+              qa.id === newQA.id ? { ...qa, answer: fullResponse, isStreaming: false, bbox: storedBbox } : qa
+            )
+          );
+        }
       } catch (error) {
         console.error('[renderer] Error:', error);
         const errorMessage = error instanceof Error ? error.message : 'An error occurred';
@@ -159,7 +163,14 @@ function App() {
           {qaPairs.map((qa) => (
             <div key={qa.id} className="qa-pair">
               <div className="question">{qa.question}</div>
-              <div className="answer">
+              <div 
+                className={`answer ${qa.bbox ? 'answer-clickable' : ''}`}
+                onClick={() => {
+                  if (qa.bbox && qa.bbox.length === 4 && window.electronAPI) {
+                    window.electronAPI.showOverlay(qa.bbox, qa.answer);
+                  }
+                }}
+              >
                 {qa.answer}
                 {qa.isStreaming && <span className="cursor">▊</span>}
               </div>

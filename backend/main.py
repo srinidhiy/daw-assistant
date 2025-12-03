@@ -21,7 +21,8 @@ class AskRequest(BaseModel):
     screenshot: str | None = None
 
 class AskResponse(BaseModel):
-    response: str
+    bbox: list[int]
+    text: str
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
@@ -32,8 +33,4 @@ async def health() -> HealthResponse:
 async def ask(request: AskRequest) -> AskResponse:
     """Endpoint to handle user queries and generate responses."""
 
-    screenshot_info = ""
-    if request.screenshot:
-        screenshot_info = f"Screenshot size: {len(request.screenshot)} bytes"
-
-    return AskResponse(response=f"Response to the query: {request.query}\n{screenshot_info}")
+    return AskResponse(bbox=[100, 100, 200, 200], text=f"Response to the query: {request.query}")

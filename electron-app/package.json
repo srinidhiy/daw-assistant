@@ -8,7 +8,7 @@
     "dev:renderer": "vite",
     "dev:electron": "npx tsc src/preload.ts --outDir . --module commonjs --target ES2020 --esModuleInterop --skipLibCheck --resolveJsonModule && wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 TS_NODE_PROJECT=tsconfig.main.json electron .",
     "typecheck": "tsc --noEmit",
-    "build:renderer": "vite build",
+    "build:renderer": "vite build && cp overlay.html dist/renderer/",
     "build:main": "tsc -p tsconfig.main.json",
     "start": "npm run build:renderer && npm run build:main && electron ./dist/main/main.js"
   },

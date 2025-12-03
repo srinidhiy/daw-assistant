@@ -5,27 +5,27 @@ import fs from 'fs';
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 let isOpened = false;
 let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
 
-function createMainWindow() {
+function getPreloadPath() {
   // Preload path - compiled preload.js should be in the root directory
   // In dev: compiled by tsc in dev:electron script to electron-app/preload.js
   // In prod: compiled by build:main script to dist/main/preload.js
-  let preloadPath: string;
   if (isDev) {
-    // In dev mode with ts-node, __dirname is src/main, so go up to project root
-    preloadPath = path.resolve(__dirname, '../../preload.js');
+    return path.resolve(__dirname, '../../preload.js');
   } else {
-    // In prod, __dirname is dist/main, so preload.js is in dist/main
-    preloadPath = path.join(__dirname, 'preload.js');
+    return path.join(__dirname, 'preload.js');
   }
-  
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     show: false,
     webPreferences: {
       contextIsolation: true,
-      preload: preloadPath,
+      preload: getPreloadPath(),
     },
   });
 
@@ -38,6 +38,78 @@ function createMainWindow() {
   }
   
   return mainWindow;
+}
+
+function createOverlayWindow() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    return overlayWindow;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.size;
+  const { x, y } = primaryDisplay.bounds;
+
+  overlayWindow = new BrowserWindow({
+    width,
+    height,
+    x,
+    y,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    focusable: true,
+    acceptFirstMouse: true,
+    webPreferences: {
+      contextIsolation: true,
+      preload: getPreloadPath(),
+      nodeIntegration: false,
+    },
+  });
+
+  // Load overlay HTML
+  if (isDev && process.env.VITE_DEV_SERVER_URL) {
+    // In dev, overlay.html is served by Vite
+    void overlayWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/overlay.html`);
+  } else {
+    // In prod, overlay.html should be in dist/renderer
+    const overlayPath = path.join(__dirname, '../renderer/overlay.html');
+    void overlayWindow.loadFile(overlayPath);
+  }
+
+  // Handle window close
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+  });
+
+  return overlayWindow;
+}
+
+function showOverlay(bbox: number[], text: string) {
+  const window = createOverlayWindow();
+  if (window) {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    window.setBounds(primaryDisplay.bounds);
+    window.show();
+    window.focus();
+    // Send data to overlay renderer after a brief delay to ensure window is ready
+    setTimeout(() => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('overlay-data', { bbox, text });
+      }
+    }, 100);
+  }
+}
+
+function hideOverlay() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.hide();
+  }
 }
 
 const toggleMainWindow = () => {
@@ -114,6 +186,18 @@ ipcMain.handle('capture-screenshot', async () => {
     console.error('[main] Error capturing screenshot:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   } 
+});
+
+ipcMain.handle('show-overlay', async (_, bbox: number[], text: string) => {
+  showOverlay(bbox, text);
+});
+
+ipcMain.handle('hide-overlay', async () => {
+  hideOverlay();
+});
+
+ipcMain.on('overlay-close', () => {
+  hideOverlay();
 });
 
 app.whenReady().then(() => {

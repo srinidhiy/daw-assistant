@@ -119,6 +119,15 @@ body {
   word-wrap: break-word;
 }
 
+.answer-clickable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.answer-clickable:hover {
+  color: #007aff;
+}
+
 .cursor {
   display: inline-block;
   width: 2px;
