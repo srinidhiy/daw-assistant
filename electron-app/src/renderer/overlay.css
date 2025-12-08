@@ -47,12 +47,43 @@
 .overlay-text-bubble::before {
   content: '';
   position: absolute;
-  bottom: -8px;
-  left: 20px;
   width: 0;
   height: 0;
+}
+
+/* Arrow pointing down (when bubble is above) */
+.overlay-text-bubble-above::before {
+  bottom: -8px;
+  left: 20px;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
   border-top: 8px solid rgba(0, 0, 0, 0.9);
+}
+
+/* Arrow pointing up (when bubble is below) */
+.overlay-text-bubble-below::before {
+  top: -8px;
+  left: 20px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid rgba(0, 0, 0, 0.9);
+}
+
+/* Arrow pointing left (when bubble is to the right) */
+.overlay-text-bubble-right::before {
+  left: -8px;
+  top: 20px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid rgba(0, 0, 0, 0.9);
+}
+
+/* Arrow pointing right (when bubble is to the left) */
+.overlay-text-bubble-left::before {
+  right: -8px;
+  top: 20px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid rgba(0, 0, 0, 0.9);
 }
 

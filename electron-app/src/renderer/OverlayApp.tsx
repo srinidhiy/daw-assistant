@@ -64,9 +64,48 @@ function OverlayApp() {
   const width = x2 - x1;
   const height = y2 - y1;
 
-  // Position text bubble above the rectangle, or below if near top of screen
-  const textBubbleY = y1 - 60 < 0 ? y2 + 10 : y1 - 50;
-  const textBubbleX = x1;
+  // Get viewport dimensions
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Calculate space available above, below, left, and right of the box
+  const spaceAbove = y1;
+  const spaceBelow = viewportHeight - y2;
+  const spaceLeft = x1;
+  const spaceRight = viewportWidth - x2;
+
+  // Position text bubble to avoid covering the box
+  // Prefer above, then below, then to the right, then to the left
+  let textBubbleX: number;
+  let textBubbleY: number;
+  let position: 'above' | 'below' | 'right' | 'left' = 'above';
+
+  if (spaceAbove >= 80) {
+    // Position above the box
+    textBubbleY = y1 - 70;
+    textBubbleX = x1;
+    position = 'above';
+  } else if (spaceBelow >= 80) {
+    // Position below the box
+    textBubbleY = y2 + 10;
+    textBubbleX = x1;
+    position = 'below';
+  } else if (spaceRight >= 250) {
+    // Position to the right of the box
+    textBubbleY = y1;
+    textBubbleX = x2 + 10;
+    position = 'right';
+  } else if (spaceLeft >= 250) {
+    // Position to the left of the box
+    textBubbleY = y1;
+    textBubbleX = x1 - 250; // Assuming max width of 250px for text bubble
+    position = 'left';
+  } else {
+    // Fallback: position above even if it's tight
+    textBubbleY = Math.max(10, y1 - 70);
+    textBubbleX = x1;
+    position = 'above';
+  }
 
   return (
     <div className="overlay-container">
@@ -86,7 +125,7 @@ function OverlayApp() {
       
       {/* Text bubble */}
       <div
-        className="overlay-text-bubble"
+        className={`overlay-text-bubble overlay-text-bubble-${position}`}
         style={{
           left: `${textBubbleX}px`,
           top: `${textBubbleY}px`,

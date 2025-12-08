@@ -70,35 +70,113 @@ function App() {
           throw new Error(`Backend error: ${response.statusText}`);
         }
 
-        // Check if response is streaming (text/event-stream or similar)
+        // Handle streaming response (Server-Sent Events)
         const contentType = response.headers.get('content-type') || '';
-        const isStreaming = contentType.includes('text/event-stream') || contentType.includes('text/plain');
+        const isStreaming = contentType.includes('text/event-stream');
         
-        let fullResponse = '';
+        let fullText = '';
+        let finalBbox: number[] | undefined;
 
         if (isStreaming && response.body) {
           // Handle streaming response from backend
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
+          let buffer = '';
 
           while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            let readResult;
+            try {
+              readResult = await reader.read();
+            } catch (readError) {
+              console.error('Error reading stream:', readError);
+              throw readError;
+            }
+            
+            const { done, value } = readResult;
+            if (done) {
+              break;
+            }
+            
+            if (!value) {
+              continue;
+            }
 
             const chunk = decoder.decode(value, { stream: true });
-            fullResponse += chunk;
+            buffer += chunk;
             
-            // Update UI with current response
-            setQAPairs(prev =>
-              prev.map(qa =>
-                qa.id === newQA.id
-                  ? { ...qa, answer: fullResponse, isStreaming: true }
-                  : qa
-              )
-            );
+            // Process complete SSE messages (lines ending with \n\n)
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() || ''; // Keep incomplete message in buffer
+
+            for (const part of parts) {
+              // Handle multiple data lines in one part
+              const lines = part.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6)); // Remove 'data: ' prefix
+                    
+                    if (data.text !== undefined) {
+                      fullText = data.text;
+                      
+                      // Update UI with current streaming text immediately
+                      setQAPairs(prev =>
+                        prev.map(qa =>
+                          qa.id === newQA.id
+                            ? { ...qa, answer: fullText, isStreaming: data.streaming !== false }
+                            : qa
+                        )
+                      );
+                    }
+                    
+                    // If this is the final message and has a bbox, store it
+                    if (data.streaming === false && data.bbox && Array.isArray(data.bbox) && data.bbox.length === 4) {
+                      finalBbox = data.bbox;
+
+                      // Show overlay with bbox and text (only after streaming is complete)
+                      if (window.electronAPI && window.electronAPI.showOverlay) {
+                        await window.electronAPI.showOverlay(data.bbox, fullText);
+                      }
+                    }
+                  } catch (e) {
+                    console.error('Error parsing SSE data:', e, 'Line:', line);
+                  }
+                }
+              }
+            }
           }
+          
+          // Process any remaining buffer
+          if (buffer.trim()) {
+            const lines = buffer.split('\n\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.text !== undefined) {
+                    fullText = data.text;
+                  }
+                  if (data.streaming === false && data.bbox && Array.isArray(data.bbox) && data.bbox.length === 4) {
+                    finalBbox = data.bbox;
+                    if (window.electronAPI && window.electronAPI.showOverlay) {
+                      await window.electronAPI.showOverlay(data.bbox, fullText);
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error parsing final SSE data:', e);
+                }
+              }
+            }
+          }
+
+          // Final update to mark streaming as complete
+          setQAPairs(prev =>
+            prev.map(qa =>
+              qa.id === newQA.id ? { ...qa, answer: fullText, isStreaming: false, bbox: finalBbox } : qa
+            )
+          );
         } else {
-          // Parse JSON response
+          // Fallback: Parse JSON response (non-streaming)
           const data = await response.json();
           
           let storedBbox: number[] | undefined;
@@ -110,21 +188,21 @@ function App() {
             if (window.electronAPI && window.electronAPI.showOverlay) {
               await window.electronAPI.showOverlay(data.bbox, data.text);
             }
-            // Also show text in the chat
-            fullResponse = data.text;
+            fullText = data.text;
+          } else if (data.text) {
+            fullText = data.text;
           } else if (data.response) {
-            fullResponse = data.response;
+            fullText = data.response;
           } else if (data.answer) {
-            fullResponse = data.answer;
+            fullText = data.answer;
           } else {
-            // If neither field exists, stringify the whole object for debugging
-            fullResponse = JSON.stringify(data, null, 2);
+            fullText = JSON.stringify(data, null, 2);
           }
 
-          // Final update to mark streaming as complete and store bbox
+          // Final update
           setQAPairs(prev =>
             prev.map(qa =>
-              qa.id === newQA.id ? { ...qa, answer: fullResponse, isStreaming: false, bbox: storedBbox } : qa
+              qa.id === newQA.id ? { ...qa, answer: fullText, isStreaming: false, bbox: storedBbox } : qa
             )
           );
         }
@@ -140,6 +218,7 @@ function App() {
         );
       } finally {
         setIsProcessing(false);
+        console.log('Request processing complete');
       }
     }
   };
